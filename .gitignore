@@ -1,0 +1,15 @@
+*.proto.desc
+*.pb.go
+*.cpb.go
+*.event_type.go
+*.swp
+*.swo
+*.go-e
+debug.test
+/vendor
+/.vendor-new
+
+# IDE related files
+.idea
+.vscode
+.tags

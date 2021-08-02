@@ -8,7 +8,7 @@ import (
 	"log"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
-	"github.com/clumio/clumio-event-publish-tf-provider/clumio"
+	"github.com/clumio-code/terraform-provider-clumio/clumio"
 )
 
 // Run "go generate" to format example terraform files and generate the docs for the registry/website

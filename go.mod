@@ -1,4 +1,4 @@
-module github.com/clumio/clumio-event-publish-tf-provider
+module github.com/clumio-code/terraform-provider-clumio
 
 go 1.16
 
