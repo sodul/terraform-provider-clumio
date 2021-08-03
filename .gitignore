@@ -8,6 +8,7 @@
 debug.test
 /vendor
 /.vendor-new
+/dist
 
 # IDE related files
 .idea
