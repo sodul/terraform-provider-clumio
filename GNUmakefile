@@ -3,9 +3,9 @@
 #
 
 VERSION=0.1.0
-ARCH=darwin_amd64
+OS_ARCH=darwin_amd64
 
-CLUMIO_PROVIDER_DIR=~/.terraform.d/plugins/clumio.com/providers/clumio/${VERSION}/${ARCH}
+CLUMIO_PROVIDER_DIR=~/.terraform.d/plugins/clumio.com/providers/clumio/${VERSION}/${OS_ARCH}
 
 default: testacc
 

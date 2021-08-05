@@ -10,9 +10,10 @@ lifecycle management of Clumio resources.
 
 ## Building The Provider
 
-1. Clone the repository
-1. Enter the repository directory
-1. Build the provider using the `make install` command: 
+1. Clone the repository.
+2. Enter the repository directory.
+3. Open the GNUmakefile and update the OS_ARCH if required. The default value is set to darwin_amd64. Information about the recommended OS and Architectures can be found [here](https://www.terraform.io/docs/registry/providers/os-arch.html).
+4. Build the provider using the `make install` command: 
 ```sh
 $ make install
 ```
