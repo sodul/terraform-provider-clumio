@@ -40,6 +40,10 @@ resource "clumio_callback_resource" "test" {
   type = "service"
   bucket_name = "clumio_terraform_test_bucket"
   canonical_user = "canonical_user"
+  config_version = "1"
   discover_version = "3"
+  protect_config_version = "18"
+  protect_ebs_version = "19"
+  protect_rds_version = "18"
 }
 `
