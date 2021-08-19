@@ -138,6 +138,11 @@ func clumioCallback() *schema.Resource {
 				Description: "Canonical User ID of the account.",
 				Required: true,
 			},
+			"config_version": {
+				Type: schema.TypeString,
+				Description: "Clumio Config version.",
+				Required: true,
+			},
 			"discover_enabled": {
 				Type: schema.TypeBool,
 				Description: "Is Clumio Discover enabled.",
@@ -153,9 +158,19 @@ func clumioCallback() *schema.Resource {
 				Description: "Is Clumio Protect enabled.",
 				Optional: true,
 			},
-			"protect_version": {
+			"protect_config_version": {
 				Type: schema.TypeString,
-				Description: "Clumio Protect version.",
+				Description: "Clumio Protect Config version.",
+				Optional: true,
+			},
+			"protect_ebs_version": {
+				Type: schema.TypeString,
+				Description: "Clumio EBS Protect version.",
+				Optional: true,
+			},
+			"protect_rds_version": {
+				Type: schema.TypeString,
+				Description: "Clumio RDS Protect version.",
 				Optional: true,
 			},
 			"properties": {
@@ -224,24 +239,7 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		fmt.Sprintf("%v", d.Get("clumio_event_pub_id"))
 	resourceProperties[keyCanonicalUser] = fmt.Sprintf("%v", d.Get("canonical_user"))
 
-	templateConfigs := make(map[string]interface{})
-	discoverConfigMap := make(map[string]interface{})
-	discoverConfigMap["enabled"] = true
-	discoverConfigMap["version"] = d.Get("discover_version")
-	discoverMap := make(map[string]interface{})
-	discoverMap["config"] = discoverConfigMap
-	templateConfigs["discover"] = discoverMap
-	templateConfigs["config"] = discoverConfigMap
-	if val, ok := d.GetOk("protect_version"); ok {
-		protectVersion := val.(string)
-		configMap := make(map[string]interface{})
-		configMap["enabled"] = true
-		configMap["version"] = protectVersion
-		templateConfigs["config"] = configMap
-		protectMap := make(map[string]interface{})
-		protectMap["config"] = configMap
-		templateConfigs["protect"] = protectMap
-	}
+	templateConfigs := getTemplateConfiguration(d)
 	resourceProperties[keyTemplateConfig] = templateConfigs
 	if val, ok := d.GetOk("properties"); ok && len(val.(map[string]interface{})) > 0 {
 		properties := val.(map[string]interface{})
@@ -251,20 +249,20 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 	}
 	event.ResourceProperties = resourceProperties
 	eventBytes, err := json.Marshal(event)
-	if err != nil{
+	if err != nil {
 		return diag.Errorf("Error occurred in marshalling event: %v", err)
 	}
 	// Publish event to SNS.
 	publishInput := &sns.PublishInput{
-		Message:                aws.String(string(eventBytes)),
-		TopicArn:               aws.String(fmt.Sprintf("%v", d.Get("sns_topic"))),
+		Message:  aws.String(string(eventBytes)),
+		TopicArn: aws.String(fmt.Sprintf("%v", d.Get("sns_topic"))),
 	}
 	startTime := time.Now()
 	_, err = regionalSns.Publish(ctx, publishInput)
-	if err != nil{
+	if err != nil {
 		return diag.Errorf("Error occurred in SNS Publish Request: %v", err)
 	}
-	if eventType == requestTypeCreate{
+	if eventType == requestTypeCreate {
 		d.SetId(uuid.New().String())
 	}
 	s3obj := client.s3API
@@ -275,7 +273,7 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 	// till the last modified time on the file is greater than the startTime and less than
 	// the end time.
 	for {
-		if time.Now().After(endTime){
+		if time.Now().After(endTime) {
 			timeOut = true
 			break
 		}
@@ -288,17 +286,17 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		if err != nil {
 			var aerr smithy.APIError
 			if errors.As(err, &aerr) {
-				if aerr.ErrorCode() == "Forbidden"{
+				if aerr.ErrorCode() == "Forbidden" {
 					log.Println(aerr.Error())
 					continue
 				}
-				return diag.Errorf("Error retrieving metadata of clumio-status.json. " +
+				return diag.Errorf("Error retrieving metadata of clumio-status.json. "+
 					"Error Code : %v, Error message: %v, origError: %v",
 					aerr.ErrorCode(),
 					aerr.ErrorMessage(), err)
 			}
 			return diag.Errorf("Error retrieving metadata of clumio-status.json: %v", err)
-		} else if headObject.LastModified.After(startTime){
+		} else if headObject.LastModified.After(startTime) {
 			// Get the clumio-status.json object.
 			statusObj, err := s3obj.GetObject(ctx, &s3.GetObjectInput{
 				Bucket: aws.String(bucketName),
@@ -318,17 +316,60 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 			if err != nil {
 				return diag.Errorf("Error unmarshalling status object: %v", err)
 			}
-			if status.Status == statusFailed{
-				return diag.Errorf("Processing of Clumio Event failed. " +
+			if status.Status == statusFailed {
+				return diag.Errorf("Processing of Clumio Event failed. "+
 					"Error Message : %s", *status.Reason)
-			} else if status.Status == statusSuccess{
+			} else if status.Status == statusSuccess {
 				processingDone = true
 				break
 			}
 		}
 	}
-	if !processingDone && timeOut{
+	if !processingDone && timeOut {
 		return diag.Errorf("Timeout occurred waiting for status.")
 	}
 	return nil
+}
+
+// getTemplateConfiguration returns the template configuration.
+func getTemplateConfiguration(d *schema.ResourceData) map[string]interface{} {
+	templateConfigs := make(map[string]interface{})
+	configMap := make(map[string]interface{})
+	configMap["enabled"] = true
+	configMap["version"] = d.Get("config_version")
+	templateConfigs["config"] = configMap
+	discoverConfigMap := make(map[string]interface{})
+	discoverConfigMap["enabled"] = true
+	discoverConfigMap["version"] = d.Get("discover_version")
+	discoverMap := make(map[string]interface{})
+	discoverMap["config"] = discoverConfigMap
+	templateConfigs["discover"] = discoverMap
+	if val, ok := d.GetOk("protect_config_version"); ok {
+		protectVersion := val.(string)
+		protectConfigMap := make(map[string]interface{})
+		protectConfigMap["enabled"] = true
+		protectConfigMap["version"] = protectVersion
+		protectMap := make(map[string]interface{})
+		protectMap["config"] = protectConfigMap
+		if val, ok := d.GetOk("protect_rds_version"); ok {
+			rdsMap := make(map[string]interface{})
+			ec2Version, ok := val.(string)
+			if ok{
+				rdsMap["enabled"] = true
+				rdsMap["version"] = ec2Version
+				protectMap["rds"] =  rdsMap
+			}
+		}
+		if val, ok := d.GetOk("protect_ebs_version"); ok {
+			ebsMap := make(map[string]interface{})
+			ebsVersion, ok := val.(string)
+			if ok{
+				ebsMap["enabled"] = true
+				ebsMap["version"] = ebsVersion
+				protectMap["ebs"] =  ebsMap
+			}
+		}
+		templateConfigs["protect"] = protectMap
+	}
+	return templateConfigs
 }
