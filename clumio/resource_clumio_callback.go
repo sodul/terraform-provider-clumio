@@ -48,6 +48,37 @@ const (
 	bucketKeyFormat = "acmtfstatus/%s/clumio-status.json"
 )
 
+var (
+	// protectInfoMap is the mapping of the the datasource to the resource parameter and
+	// if a config section is required, then isConfig will be true.
+	protectInfoMap = map[string]sourceConfigInfo{
+		"ebs": {
+			sourceKey: "protect_ebs_version",
+			isConfig: false,
+		},
+		"rds": {
+			sourceKey: "protect_rds_version",
+			isConfig: false,
+		},
+		"ec2_mssql": {
+			sourceKey: "protect_ec2_mssql_version",
+			isConfig: false,
+		},
+		"warm_tier": {
+			sourceKey: "protect_warm_tier_version",
+			isConfig: true,
+		},
+	}
+	// warmtierInfoMap is the mapping of the the warm tier datasource to the resource
+	// parameter and if a config section is required, then isConfig will be true.
+	warmtierInfoMap = map[string]sourceConfigInfo{
+		"dynamodb": {
+			sourceKey: "protect_warm_tier_dynamodb_version",
+			isConfig: false,
+		},
+	}
+)
+
 // SNSEvent is the event payload to be sent to the topic
 type SNSEvent struct {
 	RequestType        string                 `json:"RequestType"`
@@ -171,6 +202,26 @@ func clumioCallback() *schema.Resource {
 			"protect_rds_version": {
 				Type: schema.TypeString,
 				Description: "Clumio RDS Protect version.",
+				Optional: true,
+			},
+			"protect_ec2_mssql_version": {
+				Type: schema.TypeString,
+				Description: "Clumio EC2 MSSQL Protect version.",
+				Optional: true,
+			},
+			"protect_s3_version": {
+				Type: schema.TypeString,
+				Description: "Clumio S3 Protect version.",
+				Optional: true,
+			},
+			"protect_warm_tier_version": {
+				Type: schema.TypeString,
+				Description: "Clumio Warmtier Protect version.",
+				Optional: true,
+			},
+			"protect_warm_tier_dynamodb_version": {
+				Type: schema.TypeString,
+				Description: "Clumio DynamoDB Warmtier Protect version.",
 				Optional: true,
 			},
 			"properties": {
@@ -331,45 +382,63 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 	return nil
 }
 
+type sourceConfigInfo struct {
+	sourceKey string
+	isConfig bool
+}
 // getTemplateConfiguration returns the template configuration.
 func getTemplateConfiguration(d *schema.ResourceData) map[string]interface{} {
 	templateConfigs := make(map[string]interface{})
-	configMap := make(map[string]interface{})
-	configMap["enabled"] = true
-	configMap["version"] = d.Get("config_version")
-	templateConfigs["config"] = configMap
-	discoverConfigMap := make(map[string]interface{})
-	discoverConfigMap["enabled"] = true
-	discoverConfigMap["version"] = d.Get("discover_version")
-	discoverMap := make(map[string]interface{})
-	discoverMap["config"] = discoverConfigMap
-	templateConfigs["discover"] = discoverMap
-	if val, ok := d.GetOk("protect_config_version"); ok {
-		protectVersion := val.(string)
-		protectConfigMap := make(map[string]interface{})
-		protectConfigMap["enabled"] = true
-		protectConfigMap["version"] = protectVersion
-		protectMap := make(map[string]interface{})
-		protectMap["config"] = protectConfigMap
-		if val, ok := d.GetOk("protect_rds_version"); ok {
-			rdsMap := make(map[string]interface{})
-			ec2Version, ok := val.(string)
-			if ok{
-				rdsMap["enabled"] = true
-				rdsMap["version"] = ec2Version
-				protectMap["rds"] =  rdsMap
-			}
-		}
-		if val, ok := d.GetOk("protect_ebs_version"); ok {
-			ebsMap := make(map[string]interface{})
-			ebsVersion, ok := val.(string)
-			if ok{
-				ebsMap["enabled"] = true
-				ebsMap["version"] = ebsVersion
-				protectMap["ebs"] =  ebsMap
-			}
-		}
-		templateConfigs["protect"] = protectMap
+	configMap := getConfigMapForKey(d, "config_version", false)
+	if configMap == nil{
+		return templateConfigs
 	}
+	templateConfigs["config"] = configMap
+	discoverMap := getConfigMapForKey(d, "discover_version", true)
+	if discoverMap == nil {
+		return templateConfigs
+	}
+	templateConfigs["discover"] = discoverMap
+	protectMap := getConfigMapForKey(d, "protect_config_version", true)
+	if protectMap == nil {
+		return templateConfigs
+	}
+	populateConfigMap(d, protectInfoMap, protectMap)
+
+	if protectWarmtierMap, ok := protectMap["warm_tier"]; ok {
+		populateConfigMap(d, warmtierInfoMap, protectWarmtierMap.(map[string]interface{}))
+	}
+	templateConfigs["protect"] = protectMap
 	return templateConfigs
+}
+
+func populateConfigMap(d *schema.ResourceData, configInfoMap map[string]sourceConfigInfo,
+	configMap map[string]interface{}) {
+	for source, sourceInfo := range configInfoMap {
+		protectSourceMap := getConfigMapForKey(d, sourceInfo.sourceKey, sourceInfo.isConfig)
+		if protectSourceMap != nil {
+			configMap[source] = protectSourceMap
+		}
+	}
+}
+
+// getConfigMapForKey returns a config map for the key if it exists in ResourceData.
+func getConfigMapForKey(
+	d *schema.ResourceData, key string, isConfig bool) map[string]interface{}{
+	var mapToReturn map[string]interface{}
+	if val, ok := d.GetOk(key); ok{
+		keyMap := make(map[string]interface{})
+		if keyVersion, ok := val.(string); ok {
+			keyMap["enabled"] = true
+			keyMap["version"] = keyVersion
+		}
+		mapToReturn = keyMap
+		// If isConfig is true it wraps the keyMap with another map with "config" as the key.
+		if isConfig{
+			configMap := make(map[string]interface{})
+			configMap["config"] = keyMap
+			mapToReturn = configMap
+		}
+	}
+	return mapToReturn
 }
