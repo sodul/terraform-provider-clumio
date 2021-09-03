@@ -39,6 +39,11 @@ func New(isTest bool) func() *schema.Provider {
 				Optional: true,
 				Description: "AWS Region.",
 			},
+			"clumio_region" : {
+				Type: schema.TypeString,
+				Optional: true,
+				Description: "Clumio Control Plane AWS Region.",
+			},
 			"access_key": {
 				Type:        schema.TypeString,
 				Optional:    true,
@@ -100,8 +105,11 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 			cfg.Credentials = awsCredentials.NewStaticCredentialsProvider(accessKey,
 				secretKey, sessionToken)
 		}
-		//awsSession := session.Must(session.NewSession(cfg))
 		regionalSns := sns.NewFromConfig(cfg)
+		clumioRegion := getStringValue(d, "clumio_region")
+		if clumioRegion != "" {
+			cfg.Region = clumioRegion
+		}
 		s3obj := s3.NewFromConfig(cfg)
 		return &apiClient{
 			snsAPI: regionalSns,
