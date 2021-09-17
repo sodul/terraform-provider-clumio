@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -46,6 +47,11 @@ const (
 
 	//bucket key format
 	bucketKeyFormat = "acmtfstatus/%s/clumio-status.json"
+
+	//Error Strings
+	movedPermanently = "MovedPermanently"
+	snsPublishError = "operation error SNS: Publish, https response error StatusCode: 403"
+
 )
 
 var (
@@ -276,12 +282,14 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		ServiceToken:       fmt.Sprintf("%v", d.Get("token")),
 		ResourceProperties: nil,
 	}
+	token := fmt.Sprintf("%v", d.Get("token"))
+	region := fmt.Sprintf("%v", d.Get("region"))
 	resourceProperties := make(map[string]interface{})
 	resourceProperties[keyAccountID] = fmt.Sprintf("%v", d.Get("account_id"))
-	resourceProperties[keyToken] =fmt.Sprintf("%v", d.Get("token"))
+	resourceProperties[keyToken] = token
 	resourceProperties[keyType] = fmt.Sprintf("%v", d.Get("type"))
 	resourceProperties[keyAccountID] = accountId
-	resourceProperties[keyRegion] = fmt.Sprintf("%v", d.Get("region"))
+	resourceProperties[keyRegion] = region
 	resourceProperties[keyRoleID] = fmt.Sprintf("%v", d.Get("role_id"))
 	resourceProperties[keyRoleArn] = fmt.Sprintf("%v", d.Get("role_arn"))
 	resourceProperties[keyExternalID] =
@@ -311,7 +319,8 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 	startTime := time.Now()
 	_, err = regionalSns.Publish(ctx, publishInput)
 	if err != nil {
-		return diag.Errorf("Error occurred in SNS Publish Request: %v", err)
+		return diag.Errorf("Error occurred in SNS Publish Request: %v",
+			processErrorMessage(err.Error(), region, token))
 	}
 	if eventType == requestTypeCreate {
 		d.SetId(uuid.New().String())
@@ -343,8 +352,7 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 				}
 				return diag.Errorf("Error retrieving metadata of clumio-status.json. "+
 					"Error Code : %v, Error message: %v, origError: %v",
-					aerr.ErrorCode(),
-					aerr.ErrorMessage(), err)
+					aerr.ErrorCode(), aerr.ErrorMessage(), err)
 			}
 			return diag.Errorf("Error retrieving metadata of clumio-status.json: %v", err)
 		} else if headObject.LastModified.After(startTime) {
@@ -369,7 +377,8 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 			}
 			if status.Status == statusFailed {
 				return diag.Errorf("Processing of Clumio Event failed. "+
-					"Error Message : %s", *status.Reason)
+					"Error Message : %s",
+					processErrorMessage(*status.Reason, region, token))
 			} else if status.Status == statusSuccess {
 				processingDone = true
 				break
@@ -441,4 +450,19 @@ func getConfigMapForKey(
 		}
 	}
 	return mapToReturn
+}
+
+
+// processErrorMessage takes the failure reason and adds the potential cause for the
+// failure.
+func processErrorMessage(message string, region string, token string) string {
+	if strings.Contains(message, movedPermanently){
+		return fmt.Sprintf("Incorrect region specified : %s", region)
+	}
+	if strings.Contains(message, snsPublishError){
+		return fmt.Sprintf(
+			"SNS Publish Error. Incorrect clumio_token specified : %s", token)
+	}
+
+	return message
 }
