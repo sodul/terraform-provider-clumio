@@ -7,13 +7,23 @@ description: |-
 ---
 
 # clumio Provider
-
+This is a terraform provider plugin for connecting and managing accounts in Clumio.
 
 
 ## Example Usage
 
 ```terraform
 provider "clumio" {
+  // optional 
+  clumio_region = "..."
+  // If not set, the environment variable AWS_ACCESS_KEY_ID must be set.
+  access_key = "..."
+  // If not set, the environment variable AWS_SECRET_ACCESS_KEY must be set.
+  secret_key = "..."
+  // If not set, the environment variable AWS_REGION must be set.
+  region  = "..."
+  // Alternative for the environment variable AWS_SESSION_TOKEN.
+  session_token = "..."
 }
 ```
 
@@ -23,6 +33,7 @@ provider "clumio" {
 ### Optional
 
 - **access_key** (String) AWS Access Key.
+- **clumio_region** (String) Clumio Control Plane AWS Region.
 - **region** (String) AWS Region.
 - **secret_key** (String) AWS Secret Key.
 - **session_token** (String) AWS Session Token.

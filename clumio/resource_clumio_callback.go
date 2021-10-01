@@ -110,7 +110,10 @@ type StatusObject struct {
 func clumioCallback() *schema.Resource {
 	return &schema.Resource{
 		// This description is used by the documentation generator and the language server.
-		Description: "Clumio Callback Resource used while on-boarding AWS clients.",
+		Description: "Clumio Callback Resource used while on-boarding AWS clients." +
+			" The purpose of this resource is to send a SNS event with the necessary" +
+			" details of the AWS connection configuration done on the client AWS" +
+			" account so that necessary connection post processing can be done in Clumio.",
 
 		CreateContext: clumioCallbackCreate,
 		ReadContext:   clumioCallbackRead,
