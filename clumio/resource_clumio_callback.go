@@ -36,22 +36,21 @@ const (
 	keyTemplateConfig   = "TemplateConfiguration"
 
 	// Number of retries that we will perform before giving up a AWS request.
-	kMaxRetries = 8
+	kMaxRetries       = 8
 	requestTypeCreate = "Create"
 	requestTypeDelete = "Delete"
 	requestTypeUpdate = "Update"
 
 	//Status strings
-	statusFailed        = "FAILED"
-	statusSuccess       = "SUCCESS"
+	statusFailed  = "FAILED"
+	statusSuccess = "SUCCESS"
 
 	//bucket key format
 	bucketKeyFormat = "acmtfstatus/%s/clumio-status.json"
 
 	//Error Strings
 	movedPermanently = "MovedPermanently"
-	snsPublishError = "operation error SNS: Publish, https response error StatusCode: 403"
-
+	snsPublishError  = "operation error SNS: Publish, https response error StatusCode: 403"
 )
 
 var (
@@ -60,19 +59,23 @@ var (
 	protectInfoMap = map[string]sourceConfigInfo{
 		"ebs": {
 			sourceKey: "protect_ebs_version",
-			isConfig: false,
+			isConfig:  false,
 		},
 		"rds": {
 			sourceKey: "protect_rds_version",
-			isConfig: false,
+			isConfig:  false,
 		},
 		"ec2_mssql": {
 			sourceKey: "protect_ec2_mssql_version",
-			isConfig: false,
+			isConfig:  false,
 		},
 		"warm_tier": {
 			sourceKey: "protect_warm_tier_version",
-			isConfig: true,
+			isConfig:  true,
+		},
+		"s3": {
+			sourceKey: "protect_s3_version",
+			isConfig:  false,
 		},
 	}
 	// warmtierInfoMap is the mapping of the the warm tier datasource to the resource
@@ -80,7 +83,7 @@ var (
 	warmtierInfoMap = map[string]sourceConfigInfo{
 		"dynamodb": {
 			sourceKey: "protect_warm_tier_dynamodb_version",
-			isConfig: false,
+			isConfig:  false,
 		},
 	}
 )
@@ -99,9 +102,9 @@ type SNSEvent struct {
 
 // The payload in the status file read from S3.
 type StatusObject struct {
-	Status             string            `json:"Status"`
-	Reason             *string           `json:"Reason,omitempty"`
-	Data               map[string]string `json:"Data,omitempty"`
+	Status string            `json:"Status"`
+	Reason *string           `json:"Reason,omitempty"`
+	Data   map[string]string `json:"Data,omitempty"`
 }
 
 // clumioCallback returns the resource for Clumio Callback. This resource is similar to
@@ -126,10 +129,10 @@ func clumioCallback() *schema.Resource {
 			"token": {
 				Type:        schema.TypeString,
 				Description: "The AWS integration ID token.",
-				Required: true,
+				Required:    true,
 			},
 			"role_external_id": {
-				Type:        schema.TypeString,
+				Type: schema.TypeString,
 				Description: "A key that must be used by Clumio to assume the service role" +
 					" in your account. This should be a secure string, like a password," +
 					" but it does not need to be remembered (random characters are best).",
@@ -138,102 +141,102 @@ func clumioCallback() *schema.Resource {
 			"account_id": {
 				Type:        schema.TypeString,
 				Description: "The AWS Customer Account ID.",
-				Required: true,
+				Required:    true,
 			},
 			"region": {
 				Type:        schema.TypeString,
 				Description: "The AWS Region.",
-				Required: true,
+				Required:    true,
 			},
 			"role_id": {
 				Type:        schema.TypeString,
 				Description: "Clumio IAM Role ID.",
-				Required: true,
+				Required:    true,
 			},
 			"role_arn": {
 				Type:        schema.TypeString,
 				Description: "Clumio IAM Role Arn.",
-				Required: true,
+				Required:    true,
 			},
 			"clumio_event_pub_id": {
 				Type:        schema.TypeString,
 				Description: "Clumio Event Pub SNS topic ID.",
-				Required: true,
+				Required:    true,
 			},
 			"type": {
 				Type:        schema.TypeString,
 				Description: "Registration Type.",
-				Required: true,
+				Required:    true,
 			},
 			"bucket_name": {
 				Type:        schema.TypeString,
 				Description: "S3 bucket name where the status file is written.",
-				Required: true,
+				Required:    true,
 			},
 			"canonical_user": {
 				Type:        schema.TypeString,
 				Description: "Canonical User ID of the account.",
-				Required: true,
+				Required:    true,
 			},
 			"config_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio Config version.",
-				Required: true,
+				Required:    true,
 			},
 			"discover_enabled": {
-				Type: schema.TypeBool,
+				Type:        schema.TypeBool,
 				Description: "Is Clumio Discover enabled.",
-				Optional: true,
+				Optional:    true,
 			},
 			"discover_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio Discover version.",
-				Required: true,
+				Required:    true,
 			},
 			"protect_enabled": {
-				Type: schema.TypeBool,
+				Type:        schema.TypeBool,
 				Description: "Is Clumio Protect enabled.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_config_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio Protect Config version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_ebs_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio EBS Protect version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_rds_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio RDS Protect version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_ec2_mssql_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio EC2 MSSQL Protect version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_s3_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio S3 Protect version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_warm_tier_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio Warmtier Protect version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"protect_warm_tier_dynamodb_version": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
 				Description: "Clumio DynamoDB Warmtier Protect version.",
-				Optional: true,
+				Optional:    true,
 			},
 			"properties": {
-				Type: schema.TypeMap,
+				Type:        schema.TypeMap,
 				Description: "Properties to be passed in the SNS event.",
-				Optional: true,
+				Optional:    true,
 				Elem: &schema.Schema{
 					Type: schema.TypeString,
 				},
@@ -393,13 +396,14 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 
 type sourceConfigInfo struct {
 	sourceKey string
-	isConfig bool
+	isConfig  bool
 }
+
 // getTemplateConfiguration returns the template configuration.
 func getTemplateConfiguration(d *schema.ResourceData) map[string]interface{} {
 	templateConfigs := make(map[string]interface{})
 	configMap := getConfigMapForKey(d, "config_version", false)
-	if configMap == nil{
+	if configMap == nil {
 		return templateConfigs
 	}
 	templateConfigs["config"] = configMap
@@ -433,9 +437,9 @@ func populateConfigMap(d *schema.ResourceData, configInfoMap map[string]sourceCo
 
 // getConfigMapForKey returns a config map for the key if it exists in ResourceData.
 func getConfigMapForKey(
-	d *schema.ResourceData, key string, isConfig bool) map[string]interface{}{
+	d *schema.ResourceData, key string, isConfig bool) map[string]interface{} {
 	var mapToReturn map[string]interface{}
-	if val, ok := d.GetOk(key); ok{
+	if val, ok := d.GetOk(key); ok {
 		keyMap := make(map[string]interface{})
 		if keyVersion, ok := val.(string); ok {
 			keyMap["enabled"] = true
@@ -443,7 +447,7 @@ func getConfigMapForKey(
 		}
 		mapToReturn = keyMap
 		// If isConfig is true it wraps the keyMap with another map with "config" as the key.
-		if isConfig{
+		if isConfig {
 			configMap := make(map[string]interface{})
 			configMap["config"] = keyMap
 			mapToReturn = configMap
@@ -452,14 +456,13 @@ func getConfigMapForKey(
 	return mapToReturn
 }
 
-
 // processErrorMessage takes the failure reason and adds the potential cause for the
 // failure.
 func processErrorMessage(message string, region string, token string) string {
-	if strings.Contains(message, movedPermanently){
+	if strings.Contains(message, movedPermanently) {
 		return fmt.Sprintf("Incorrect region specified : %s", region)
 	}
-	if strings.Contains(message, snsPublishError){
+	if strings.Contains(message, snsPublishError) {
 		return fmt.Sprintf(
 			"SNS Publish Error. Incorrect clumio_token specified : %s", token)
 	}
