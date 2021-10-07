@@ -8,14 +8,16 @@ lifecycle management of Clumio resources.
 -	[Terraform](https://www.terraform.io/downloads.html) >= 0.14.x
 -	[Go](https://golang.org/doc/install) >= 1.17
 
-## Building The Provider
+## Installing the provider
 
-1. Clone the repository.
-2. Enter the repository directory.
-3. Open the GNUmakefile and update the OS_ARCH if required. The default value is set to darwin_amd64. Information about the recommended OS and Architectures can be found [here](https://www.terraform.io/docs/registry/providers/os-arch.html).
-4. Build the provider using the `make install` command: 
+To get started quickly and conveniently, install using the following command:
 ```sh
-$ make install
+$ curl https://raw.githubusercontent.com/clumio-code/terraform-provider-clumio/main/installer.sh | bash -s -- VERSION
 ```
-This will build the provider and put the provider binary in the Terraform plugins 
-directory.
+Replace VERSION with the appropriate release version.
+### Alternative: Clone the repository and run installer.sh
+```sh
+$ git clone https://github.com/clumio-code/terraform-provider-clumio.git
+$ ./installer.sh VERSION
+```
+Replace VERSION with the appropriate release version.
