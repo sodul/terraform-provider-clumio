@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VERSION=$1
-if [ -z ${VERSION}]; then
+if [ -z ${VERSION} ]; then
   echo "Usage: ./installer.sh <version>. An example of <version> would be v0.1.0."
   exit 1
 fi
@@ -42,13 +42,13 @@ fi
 
 cd ${PROVIDER_NAME}
 
-if command -v wget &> /dev/null; then
-  if ! wget ${BINARY}; then
+if command -v curl &> /dev/null; then
+  if ! curl -sSL ${BINARY} -o "${PROVIDER_NAME}.zip"; then
     echo "Error downloading ${BINARY}. Exiting..."
     exit 1
   fi
-elif command -v curl &> /dev/null; then
-  if ! curl -sSL ${BINARY} -o "${PROVIDER_NAME}.zip"; then
+elif command -v wget &> /dev/null; then
+  if ! wget -q ${BINARY}; then
     echo "Error downloading ${BINARY}. Exiting..."
     exit 1
   fi
@@ -57,7 +57,7 @@ else:
   exit 1
 fi
 
-if ! unzip ${PROVIDER_NAME}.zip; then
+if ! unzip -q ${PROVIDER_NAME}.zip; then
   echo "Error unzipping ${PROVIDER_NAME}.zip. Exiting..."
   exit 1
 fi
@@ -69,4 +69,6 @@ fi
 cd ..
 # cleanup downloaded files
 rm -rf ${PROVIDER_NAME}*
-
+if [ -f ${TF_PLUGIN_DIR}/terraform-provider-clumio_${VERSION} ]; then
+  echo "Clumio Terraform Provider installed successfully."
+fi
