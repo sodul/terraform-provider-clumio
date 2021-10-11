@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +35,7 @@ const (
 	keyClumioEventPubID = "ClumioEventPubId"
 	keyCanonicalUser    = "CanonicalUser"
 	keyTemplateConfig   = "TemplateConfiguration"
+	keyEventPublishTime = "EventPublishTime"
 
 	// Number of retries that we will perform before giving up a AWS request.
 	kMaxRetries       = 8
@@ -46,7 +48,7 @@ const (
 	statusSuccess = "SUCCESS"
 
 	//bucket key format
-	bucketKeyFormat = "acmtfstatus/%s/clumio-status.json"
+	bucketKeyFormat = "acmtfstatus/%s/%s/%s/clumio-status-%s.json"
 
 	//Error Strings
 	movedPermanently = "MovedPermanently"
@@ -309,6 +311,10 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 			resourceProperties[key] = value.(string)
 		}
 	}
+	startTime := time.Now()
+	startTimeUnixStr := strconv.FormatInt(
+		startTime.UnixNano()/int64(time.Millisecond), 10)
+	resourceProperties[keyEventPublishTime] = startTimeUnixStr
 	event.ResourceProperties = resourceProperties
 	eventBytes, err := json.Marshal(event)
 	if err != nil {
@@ -319,7 +325,6 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		Message:  aws.String(string(eventBytes)),
 		TopicArn: aws.String(fmt.Sprintf("%v", d.Get("sns_topic"))),
 	}
-	startTime := time.Now()
 	_, err = regionalSns.Publish(ctx, publishInput)
 	if err != nil {
 		return diag.Errorf("Error occurred in SNS Publish Request: %v",
@@ -341,10 +346,12 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 			break
 		}
 		time.Sleep(5 * time.Second)
+		objectKey := fmt.Sprintf(
+			bucketKeyFormat, accountId, region, token, startTimeUnixStr)
 		// HeadObject call to get the last modified time of the file.
-		headObject, err := s3obj.HeadObject(ctx, &s3.HeadObjectInput{
+		statusObj, err := s3obj.GetObject(ctx, &s3.GetObjectInput{
 			Bucket: aws.String(bucketName),
-			Key:    aws.String(fmt.Sprintf(bucketKeyFormat, accountId)),
+			Key:    aws.String(objectKey),
 		})
 		if err != nil {
 			var aerr smithy.APIError
@@ -353,21 +360,12 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 					log.Println(aerr.Error())
 					continue
 				}
-				return diag.Errorf("Error retrieving metadata of clumio-status.json. "+
+				return diag.Errorf("Error retrieving clumio-status.json. "+
 					"Error Code : %v, Error message: %v, origError: %v",
 					aerr.ErrorCode(), aerr.ErrorMessage(), err)
 			}
-			return diag.Errorf("Error retrieving metadata of clumio-status.json: %v", err)
-		} else if headObject.LastModified.After(startTime) {
-			// Get the clumio-status.json object.
-			statusObj, err := s3obj.GetObject(ctx, &s3.GetObjectInput{
-				Bucket: aws.String(bucketName),
-				Key:    aws.String(fmt.Sprintf(bucketKeyFormat, accountId)),
-			})
-			if err != nil {
-				return diag.Errorf("Error retrieving clumio-status.json: %v", err)
-			}
-
+			return diag.Errorf("Error retrieving clumio-status.json: %v", err)
+		} else {
 			var status StatusObject
 			statusObjBytes := new(bytes.Buffer)
 			_, err = statusObjBytes.ReadFrom(statusObj.Body)
