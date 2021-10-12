@@ -2,7 +2,7 @@
 # Copyright 2021. Clumio, Inc.
 #
 
-VERSION=0.1.0
+VERSION=0.1.1
 OS_ARCH=darwin_amd64
 
 CLUMIO_PROVIDER_DIR=~/.terraform.d/plugins/clumio.com/providers/clumio/${VERSION}/${OS_ARCH}
@@ -17,4 +17,4 @@ testacc:
 install:
 	go mod vendor
 	mkdir -p ${CLUMIO_PROVIDER_DIR}
-	go build -o ${CLUMIO_PROVIDER_DIR}/terraform-provider-clumio
+	go build -o ${CLUMIO_PROVIDER_DIR}/terraform-provider-clumio_v${VERSION}
