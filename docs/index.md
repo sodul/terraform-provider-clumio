@@ -7,7 +7,7 @@ description: |-
 ---
 
 # clumio Provider
-This is a terraform provider plugin for connecting and managing accounts in Clumio.
+
 
 
 ## Example Usage
@@ -16,14 +16,21 @@ This is a terraform provider plugin for connecting and managing accounts in Clum
 provider "clumio" {
   // optional 
   clumio_region = "..."
-  // If not set, the environment variable AWS_ACCESS_KEY_ID must be set.
+  // Alternative for the environment variable AWS_ACCESS_KEY_ID.
   access_key = "..."
-  // If not set, the environment variable AWS_SECRET_ACCESS_KEY must be set.
+  // Alternative for the environment variable AWS_SECRET_ACCESS_KEY.
   secret_key = "..."
-  // If not set, the environment variable AWS_REGION must be set.
+  // Alternative for the environment variable AWS_REGION.
   region  = "..."
   // Alternative for the environment variable AWS_SESSION_TOKEN.
   session_token = "..."
+  // Configuration to get temporary credentials for a different account.
+  assume_role {
+    role_arn = "..."
+    exteral_id = "..."
+    session_name = "..."
+    duration_seconds = ...
+  }
 }
 ```
 
@@ -33,7 +40,18 @@ provider "clumio" {
 ### Optional
 
 - **access_key** (String) AWS Access Key.
+- **assume_role** (Block List, Max: 1) (see [below for nested schema](#nestedblock--assume_role))
 - **clumio_region** (String) Clumio Control Plane AWS Region.
 - **region** (String) AWS Region.
 - **secret_key** (String) AWS Secret Key.
 - **session_token** (String) AWS Session Token.
+
+<a id="nestedblock--assume_role"></a>
+### Nested Schema for `assume_role`
+
+Optional:
+
+- **duration_seconds** (Number) Seconds to restrict the assume role session duration. Defaults to 15 minutes if not set.
+- **external_id** (String) Unique identifier that might be required for assuming a role in another account.
+- **role_arn** (String) Amazon Resource Name of an IAM Role to assume prior to making API calls.
+- **session_name** (String) Identifier for the assumed role session.

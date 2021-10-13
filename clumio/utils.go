@@ -18,3 +18,11 @@ func getStringValue(d *schema.ResourceData, key string) string {
 	}
 	return value
 }
+
+//Utility function to return a string value from a map if the key exists
+func getStringValueFromMap(keyVals map[string]interface{}, key string) *string{
+	if v, ok := keyVals[key].(string); ok && v != "" {
+		return &v
+	}
+	return nil
+}
