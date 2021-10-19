@@ -29,6 +29,15 @@ resource "clumio_callback_resource" "example" {
       "key1" : val1
     }
   }
+  config_version                     = "1"
+  discover_version                   = "3"
+  protect_config_version             = "18"
+  protect_ebs_version                = "19"
+  protect_rds_version                = "18"
+  protect_ec2_mssql_version          = "1"
+  protect_warm_tier_version          = "2"
+  protect_warm_tier_dynamodb_version = "2"
+  protect_s3_version                 = "1"
 }
 ```
 

@@ -465,7 +465,7 @@ func processErrorMessage(message string, region string, token string) string {
 	}
 	if strings.Contains(message, snsPublishError) {
 		return fmt.Sprintf(
-			"SNS Publish Error. Incorrect clumio_token specified : %s", token)
+			"SNS Publish Error. Incorrect region or clumio_token specified : %s", token)
 	}
 
 	return message
