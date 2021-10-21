@@ -189,6 +189,11 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 				"Error loading default config for AWS Provider: %v",	err)
 		}
 
+		region := getStringValue(d, "region")
+		if region != "" {
+			cfg.Region = region
+		}
+
 		var assumeRoleOptions *stscreds.AssumeRoleOptions
 		var diagErr diag.Diagnostics
 		if assumeRoleList, ok := d.Get("assume_role").([]interface{});
@@ -209,11 +214,6 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 					client, assumeRoleOptions.RoleARN, assumeRoleOptionsFunc)
 				cfg.Credentials = assumeRoleProvider
 			}
-		}
-
-		region := getStringValue(d, "region")
-		if region != "" {
-			cfg.Region = region
 		}
 
 		if accessKey != "" && (secretKey != "" || sessionToken != ""){
