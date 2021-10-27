@@ -7,6 +7,7 @@ package clumio
 import (
 	"context"
 	"fmt"
+	"os"
 	"regexp"
 	"time"
 
@@ -27,9 +28,11 @@ const (
 	awsAccountIDRegexpInternalPattern = `(aws|\d{12})`
 	awsPartitionRegexpInternalPattern = `aws(-[a-z]+)*`
 	awsRegionRegexpInternalPattern    = `[a-z]{2}(-[a-z]+)+-\d`
-	awsAccountIDRegexpPattern = "^" + awsAccountIDRegexpInternalPattern + "$"
-	awsPartitionRegexpPattern = "^" + awsPartitionRegexpInternalPattern + "$"
-	awsRegionRegexpPattern    = "^" + awsRegionRegexpInternalPattern + "$"
+	awsAccountIDRegexpPattern         = "^" + awsAccountIDRegexpInternalPattern + "$"
+	awsPartitionRegexpPattern         = "^" + awsPartitionRegexpInternalPattern + "$"
+	awsRegionRegexpPattern            = "^" + awsRegionRegexpInternalPattern + "$"
+	awsProfile = "AWS_PROFILE"
+	awsSharedCredsFile = "AWS_SHARED_CREDENTIALS_FILE"
 )
 
 var awsAccountIDRegexp = regexp.MustCompile(awsAccountIDRegexpPattern)
@@ -44,14 +47,14 @@ func init() {
 
 // New is the factory method that returns a function which, when called,
 // creates a new Provider instance.
-func New(isTest bool) func() *schema.Provider {
+func New(isUnitTest bool) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
 			ResourcesMap: map[string]*schema.Resource{
 				"clumio_callback_resource": clumioCallback(),
 			},
 		}
-		p.ConfigureContextFunc = configure(p, isTest)
+		p.ConfigureContextFunc = configure(p, isUnitTest)
 		p.Schema = map[string]*schema.Schema{
 			"access_key": {
 				Type:        schema.TypeString,
@@ -60,14 +63,14 @@ func New(isTest bool) func() *schema.Provider {
 				Description: "AWS Access Key.",
 			},
 			"assume_role": assumeRoleSchema(),
-			"clumio_region" : {
-				Type: schema.TypeString,
-				Optional: true,
+			"clumio_region": {
+				Type:        schema.TypeString,
+				Optional:    true,
 				Description: "Clumio Control Plane AWS Region.",
 			},
-			"region" : {
-				Type: schema.TypeString,
-				Optional: true,
+			"region": {
+				Type:        schema.TypeString,
+				Optional:    true,
 				Description: "AWS Region.",
 			},
 			"secret_key": {
@@ -81,6 +84,20 @@ func New(isTest bool) func() *schema.Provider {
 				Optional:    true,
 				Default:     "",
 				Description: "AWS Session Token.",
+			},
+			"profile": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+				Description: "The profile for API operations. If not set, the default profile\n" +
+					"created with `aws configure` will be used.",
+			},
+			"shared_credentials_file": {
+				Type:     schema.TypeString,
+				Optional: true,
+				Default:  "",
+				Description: "The path to the shared credentials file. If not set\n" +
+					"this defaults to ~/.aws/credentials.",
 			},
 		}
 		return p
@@ -158,15 +175,15 @@ func validateArn(v interface{}, k string) (ws []string, errors []error) {
 // apiClient defines the APIs/connections required by the resources.
 type apiClient struct {
 	snsAPI SNSAPI
-	s3API S3API
+	s3API  S3API
 }
 
 // configure is a factory method to configure the Provider.
-func configure(_ *schema.Provider, isTest bool) func(context.Context,
+func configure(_ *schema.Provider, isUnitTest bool) func(context.Context,
 	*schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(ctx context.Context, d *schema.ResourceData) (interface{},
-	diag.Diagnostics) {
-		if isTest{
+		diag.Diagnostics) {
+		if isUnitTest {
 			return &apiClient{
 				snsAPI: SNSClient{},
 				s3API:  S3Client{},
@@ -176,17 +193,31 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 		accessKey := getStringValue(d, "access_key")
 		secretKey := getStringValue(d, "secret_key")
 		sessionToken := getStringValue(d, "session_token")
-
+		profile := getStringValue(d, "profile")
+		if profile == "" {
+			profile = os.Getenv(awsProfile)
+		}
+		sharedCredsFile := getStringValue(d, "shared_credentials_file")
+		if sharedCredsFile == "" {
+			sharedCredsFile = os.Getenv(awsSharedCredsFile)
+		}
 		loadOpts := []func(options *config.LoadOptions) error{
 			config.WithRetryer(func() aws.Retryer {
-				return retry.AddWithMaxAttempts(retry.NewStandard(),kMaxRetries)
+				return retry.AddWithMaxAttempts(retry.NewStandard(), kMaxRetries)
 			}),
+		}
+		if profile != "" {
+			loadOpts = append(loadOpts, config.WithSharedConfigProfile(profile))
+		}
+		if sharedCredsFile != "" {
+			loadOpts = append(
+				loadOpts, config.WithSharedCredentialsFiles([]string{sharedCredsFile}))
 		}
 
 		cfg, err := config.LoadDefaultConfig(context.TODO(), loadOpts...)
 		if err != nil {
 			return nil, diag.Errorf(
-				"Error loading default config for AWS Provider: %v",	err)
+				"Error loading default config for AWS Provider: %v", err)
 		}
 
 		region := getStringValue(d, "region")
@@ -196,19 +227,18 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 
 		var assumeRoleOptions *stscreds.AssumeRoleOptions
 		var diagErr diag.Diagnostics
-		if assumeRoleList, ok := d.Get("assume_role").([]interface{});
-			ok && len(assumeRoleList) > 0 && assumeRoleList[0] != nil {
+		if assumeRoleList, ok := d.Get("assume_role").([]interface{}); ok && len(assumeRoleList) > 0 && assumeRoleList[0] != nil {
 			assumeRoleOptions, diagErr = getAssumeRoleOptions(assumeRoleList[0])
-			if diagErr != nil{
+			if diagErr != nil {
 				return nil, diagErr
 			}
-			assumeRoleOptionsFunc := func(options *stscreds.AssumeRoleOptions){
+			assumeRoleOptionsFunc := func(options *stscreds.AssumeRoleOptions) {
 				options.Duration = assumeRoleOptions.Duration
 				options.ExternalID = assumeRoleOptions.ExternalID
 				options.RoleARN = assumeRoleOptions.RoleARN
 				options.RoleSessionName = assumeRoleOptions.RoleSessionName
 			}
-			if assumeRoleOptions != nil{
+			if assumeRoleOptions != nil {
 				client := sts.NewFromConfig(cfg)
 				assumeRoleProvider := stscreds.NewAssumeRoleProvider(
 					client, assumeRoleOptions.RoleARN, assumeRoleOptionsFunc)
@@ -216,7 +246,7 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 			}
 		}
 
-		if accessKey != "" && (secretKey != "" || sessionToken != ""){
+		if accessKey != "" && (secretKey != "" || sessionToken != "") {
 			cfg.Credentials = awsCredentials.NewStaticCredentialsProvider(accessKey,
 				secretKey, sessionToken)
 		}
@@ -228,34 +258,33 @@ func configure(_ *schema.Provider, isTest bool) func(context.Context,
 		s3obj := s3.NewFromConfig(cfg)
 		return &apiClient{
 			snsAPI: regionalSns,
-			s3API: s3obj,
+			s3API:  s3obj,
 		}, nil
 	}
 }
 
 // Utility function to construct AssumeRoleOptions struct from the assumeRole parameter
 func getAssumeRoleOptions(
-	assumeRole interface{}) (*stscreds.AssumeRoleOptions, diag.Diagnostics){
+	assumeRole interface{}) (*stscreds.AssumeRoleOptions, diag.Diagnostics) {
 	assumeRoleMap, ok := assumeRole.(map[string]interface{})
-	if !ok{
+	if !ok {
 		return nil, diag.Errorf("Invalid format for assume_role")
 	}
 	roleArn := getStringValueFromMap(assumeRoleMap, "role_arn")
 	var duration time.Duration
 	if v, ok := assumeRoleMap["duration_seconds"].(int); ok && v != 0 {
-		duration = time.Duration(v)*time.Second
+		duration = time.Duration(v) * time.Second
 	}
 	externalId := getStringValueFromMap(assumeRoleMap, "external_id")
 	sessionName := getStringValueFromMap(assumeRoleMap, "session_name")
-	if sessionName == nil{
+	if sessionName == nil {
 		empty := ""
 		sessionName = &empty
 	}
 	return &stscreds.AssumeRoleOptions{
-		RoleARN : *roleArn,
-		Duration: duration,
-		ExternalID: externalId,
+		RoleARN:         *roleArn,
+		Duration:        duration,
+		ExternalID:      externalId,
 		RoleSessionName: *sessionName,
 	}, nil
 }
-

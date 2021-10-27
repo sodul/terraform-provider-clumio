@@ -17,6 +17,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/smithy-go"
 	"github.com/google/uuid"
@@ -359,7 +360,10 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		if err != nil {
 			var aerr smithy.APIError
 			if errors.As(err, &aerr) {
-				if aerr.ErrorCode() == "Forbidden" {
+				// Checking for both forbidden as well as NoSuchKey as acceptance test
+				// returns NoSuchKey while actual resource returns Forbidden error.
+				_, ok := aerr.(*s3types.NoSuchKey)
+				if aerr.ErrorCode() == "Forbidden" || ok {
 					log.Println(aerr.Error())
 					continue
 				}
