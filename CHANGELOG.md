@@ -1,3 +1,6 @@
+## 0.1.3
+Added support for AWS sso and shared_credentials_file in the provider.
+
 ## 0.1.2
 Added support for AWS assume_role in the provider.
 

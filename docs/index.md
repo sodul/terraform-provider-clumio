@@ -24,6 +24,10 @@ provider "clumio" {
   region  = "..."
   // Alternative for the environment variable AWS_SESSION_TOKEN.
   session_token = "..."
+  // Alternative for the environment variable AWS_PROFILE.
+  profile  = "..."
+  // Alternative for the environment variable AWS_SHARED_CREDENTIALS_FILE.
+  shared_credentials_file = "..."
   // Configuration to get temporary credentials for a different account.
   assume_role {
     role_arn = "..."
@@ -42,9 +46,13 @@ provider "clumio" {
 - **access_key** (String) AWS Access Key.
 - **assume_role** (Block List, Max: 1) (see [below for nested schema](#nestedblock--assume_role))
 - **clumio_region** (String) Clumio Control Plane AWS Region.
+- **profile** (String) The profile for API operations. If not set, the default profile
+created with `aws configure` will be used.
 - **region** (String) AWS Region.
 - **secret_key** (String) AWS Secret Key.
 - **session_token** (String) AWS Session Token.
+- **shared_credentials_file** (String) The path to the shared credentials file. If not set
+this defaults to ~/.aws/credentials.
 
 <a id="nestedblock--assume_role"></a>
 ### Nested Schema for `assume_role`
