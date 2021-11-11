@@ -9,15 +9,21 @@ lifecycle management of Clumio resources.
 -	[Go](https://golang.org/doc/install) >= 1.17
 
 ## Installing the provider
+The Clumio Terraform Provider is available in the [Terraform Registry](https://registry.terraform.io/providers/clumio-code/clumio/latest).
 
-To get started quickly and conveniently, install using the following command:
-```sh
-$ curl https://raw.githubusercontent.com/clumio-code/terraform-provider-clumio/main/installer.sh | bash -s -- VERSION
+The following terraform block will install the provider upon "terraform init":
 ```
-Replace VERSION with the appropriate release version.
-### Alternative: Clone the repository and run installer.sh
-```sh
-$ git clone https://github.com/clumio-code/terraform-provider-clumio.git
-$ ./installer.sh VERSION
+terraform {
+  required_providers {
+    clumio = {
+      source = "clumio-code/clumio"
+      version = ">=0.1.3"
+    }
+  }
+}
 ```
-Replace VERSION with the appropriate release version.
+
+For versions older than v0.1.3, install the provider using the following command:
+```sh
+$ curl https://raw.githubusercontent.com/clumio-code/terraform-provider-clumio/main/installer.sh | bash -s -- v0.1.2
+```
