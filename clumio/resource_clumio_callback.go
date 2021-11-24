@@ -80,6 +80,10 @@ var (
 			sourceKey: "protect_s3_version",
 			isConfig:  false,
 		},
+		"dynamodb": {
+			sourceKey: "protect_dynamodb_version",
+			isConfig:  false,
+		},
 	}
 	// warmtierInfoMap is the mapping of the the warm tier datasource to the resource
 	// parameter and if a config section is required, then isConfig will be true.
@@ -227,6 +231,11 @@ func clumioCallback() *schema.Resource {
 			"protect_s3_version": {
 				Type:        schema.TypeString,
 				Description: "Clumio S3 Protect version.",
+				Optional:    true,
+			},
+			"protect_dynamodb_version": {
+				Type:        schema.TypeString,
+				Description: "Clumio DynamoDB Protect version.",
 				Optional:    true,
 			},
 			"protect_warm_tier_version": {
