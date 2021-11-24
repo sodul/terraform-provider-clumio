@@ -243,6 +243,7 @@ resource "clumio_callback_resource" "test" {
   protect_ec2_mssql_version = "1"
   protect_warm_tier_version = "2"
   protect_warm_tier_dynamodb_version = "2"
+  protect_dynamodb_version = "1"
 }
 `
 
