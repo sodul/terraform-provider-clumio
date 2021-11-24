@@ -1,3 +1,6 @@
+## 0.1.4
+Schema changes to clumio_callback_resource
+
 ## 0.1.3
 Added support for AWS sso and shared_credentials_file in the provider.
 
