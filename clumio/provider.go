@@ -20,19 +20,18 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
+	clumioConfig "github.com/clumio-code/clumio-go-sdk/config"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_aws_connection"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_callback"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_organizational_unit"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_policy"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_policy_rule"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_post_process_aws_connection"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_role"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/clumio_user"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/common"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
-)
-
-const (
-	awsAccountIDRegexpInternalPattern = `(aws|\d{12})`
-	awsPartitionRegexpInternalPattern = `aws(-[a-z]+)*`
-	awsRegionRegexpInternalPattern    = `[a-z]{2}(-[a-z]+)+-\d`
-	awsAccountIDRegexpPattern         = "^" + awsAccountIDRegexpInternalPattern + "$"
-	awsPartitionRegexpPattern         = "^" + awsPartitionRegexpInternalPattern + "$"
-	awsRegionRegexpPattern            = "^" + awsRegionRegexpInternalPattern + "$"
-	awsProfile = "AWS_PROFILE"
-	awsSharedCredsFile = "AWS_SHARED_CREDENTIALS_FILE"
 )
 
 var awsAccountIDRegexp = regexp.MustCompile(awsAccountIDRegexpPattern)
@@ -51,7 +50,16 @@ func New(isUnitTest bool) func() *schema.Provider {
 	return func() *schema.Provider {
 		p := &schema.Provider{
 			ResourcesMap: map[string]*schema.Resource{
-				"clumio_callback_resource": clumioCallback(),
+				"clumio_callback_resource":           clumio_callback.ClumioCallback(),
+				"clumio_aws_connection":              clumio_aws_connection.ClumioAWSConnection(),
+				"clumio_post_process_aws_connection": clumio_post_process_aws_connection.ClumioPostProcessAWSConnection(),
+				"clumio_policy":                      clumio_policy.ClumioPolicy(),
+				"clumio_user":                        clumio_user.ClumioUser(),
+				"clumio_organizational_unit":         clumio_organizational_unit.ClumioOrganizationalUnit(),
+				"clumio_policy_rule":                 clumio_policy_rule.ClumioPolicyRule(),
+			},
+			DataSourcesMap: map[string]*schema.Resource{
+				"clumio_role": clumio_role.DataSourceClumioRole(),
 			},
 		}
 		p.ConfigureContextFunc = configure(p, isUnitTest)
@@ -98,6 +106,18 @@ func New(isUnitTest bool) func() *schema.Provider {
 				Default:  "",
 				Description: "The path to the shared credentials file. If not set\n" +
 					"this defaults to ~/.aws/credentials.",
+			},
+			"clumio_api_token": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "",
+				Description: "The API token required to invoke Clumio APIs.",
+			},
+			"clumio_api_base_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Default:     "https://api.clumio.com",
+				Description: "The base URL for Clumio APIs.",
 			},
 		}
 		return p
@@ -172,32 +192,35 @@ func validateArn(v interface{}, k string) (ws []string, errors []error) {
 	return ws, errors
 }
 
-// apiClient defines the APIs/connections required by the resources.
-type apiClient struct {
-	snsAPI SNSAPI
-	s3API  S3API
-}
-
 // configure is a factory method to configure the Provider.
 func configure(_ *schema.Provider, isUnitTest bool) func(context.Context,
 	*schema.ResourceData) (interface{}, diag.Diagnostics) {
 	return func(ctx context.Context, d *schema.ResourceData) (interface{},
 		diag.Diagnostics) {
 		if isUnitTest {
-			return &apiClient{
-				snsAPI: SNSClient{},
-				s3API:  S3Client{},
+			return &common.ApiClient{
+				SnsAPI: common.SNSClient{},
+				S3API:  common.S3Client{},
 			}, nil
 		}
 
-		accessKey := getStringValue(d, "access_key")
-		secretKey := getStringValue(d, "secret_key")
-		sessionToken := getStringValue(d, "session_token")
-		profile := getStringValue(d, "profile")
+		apiToken := common.GetStringValue(d, "clumio_api_token")
+		baseUrl := common.GetStringValue(d, "clumio_api_base_url")
+		if apiToken == "" {
+			apiToken = os.Getenv(common.ClumioApiToken)
+		}
+		if baseUrl == "" {
+			baseUrl = os.Getenv(common.ClumioApiBaseUrl)
+		}
+
+		accessKey := common.GetStringValue(d, "access_key")
+		secretKey := common.GetStringValue(d, "secret_key")
+		sessionToken := common.GetStringValue(d, "session_token")
+		profile := common.GetStringValue(d, "profile")
 		if profile == "" {
 			profile = os.Getenv(awsProfile)
 		}
-		sharedCredsFile := getStringValue(d, "shared_credentials_file")
+		sharedCredsFile := common.GetStringValue(d, "shared_credentials_file")
 		if sharedCredsFile == "" {
 			sharedCredsFile = os.Getenv(awsSharedCredsFile)
 		}
@@ -220,7 +243,7 @@ func configure(_ *schema.Provider, isUnitTest bool) func(context.Context,
 				"Error loading default config for AWS Provider: %v", err)
 		}
 
-		region := getStringValue(d, "region")
+		region := common.GetStringValue(d, "region")
 		if region != "" {
 			cfg.Region = region
 		}
@@ -251,14 +274,18 @@ func configure(_ *schema.Provider, isUnitTest bool) func(context.Context,
 				secretKey, sessionToken)
 		}
 		regionalSns := sns.NewFromConfig(cfg)
-		clumioRegion := getStringValue(d, "clumio_region")
+		clumioRegion := common.GetStringValue(d, "clumio_region")
 		if clumioRegion != "" {
 			cfg.Region = clumioRegion
 		}
 		s3obj := s3.NewFromConfig(cfg)
-		return &apiClient{
-			snsAPI: regionalSns,
-			s3API:  s3obj,
+		return &common.ApiClient{
+			SnsAPI: regionalSns,
+			S3API:  s3obj,
+			ClumioConfig: clumioConfig.Config{
+				Token:   apiToken,
+				BaseUrl: baseUrl,
+			},
 		}, nil
 	}
 }
@@ -270,13 +297,13 @@ func getAssumeRoleOptions(
 	if !ok {
 		return nil, diag.Errorf("Invalid format for assume_role")
 	}
-	roleArn := getStringValueFromMap(assumeRoleMap, "role_arn")
+	roleArn := common.GetStringValueFromMap(assumeRoleMap, "role_arn")
 	var duration time.Duration
 	if v, ok := assumeRoleMap["duration_seconds"].(int); ok && v != 0 {
 		duration = time.Duration(v) * time.Second
 	}
-	externalId := getStringValueFromMap(assumeRoleMap, "external_id")
-	sessionName := getStringValueFromMap(assumeRoleMap, "session_name")
+	externalId := common.GetStringValueFromMap(assumeRoleMap, "external_id")
+	sessionName := common.GetStringValueFromMap(assumeRoleMap, "session_name")
 	if sessionName == nil {
 		empty := ""
 		sessionName = &empty

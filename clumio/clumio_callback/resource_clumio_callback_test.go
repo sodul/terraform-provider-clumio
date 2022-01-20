@@ -1,7 +1,8 @@
 // Copyright 2021. Clumio, Inc.
 
 // Acceptance test for resource_clumio_callback.
-package clumio
+
+package clumio_callback_test
 
 import (
 	"archive/zip"
@@ -28,9 +29,13 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/aws/smithy-go"
+	"github.com/clumio-code/terraform-provider-clumio/clumio"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/common"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/stretchr/testify/require"
 )
+
+const kMaxRetries = 8
 
 func init() {
 	resource.AddTestSweepers("clumio_callback_resource", &resource.Sweeper{
@@ -44,12 +49,12 @@ func testSweepAWSResources(region string) error {
 }
 
 func TestAccResourceClumioCallback(t *testing.T) {
-	if isAcceptanceTest() {
+	if common.IsAcceptanceTest() {
 		accountId, topicArn, canonicalUser, err := setUpResources(t)
 		require.Nil(t, err)
 		resource.Test(t, resource.TestCase{
-			PreCheck:          func() { testAccPreCheck(t) },
-			ProviderFactories: providerFactories,
+			PreCheck:          func() { clumio.UtilTestAccPreCheckAws(t) },
+			ProviderFactories: clumio.ProviderFactories,
 			Steps: []resource.TestStep{
 				{
 					Config: getTestAccResourceClumioCallback(
@@ -66,7 +71,7 @@ func TestAccResourceClumioCallback(t *testing.T) {
 		require.Nil(t, err)
 	} else {
 		resource.UnitTest(t, resource.TestCase{
-			ProviderFactories: providerFactories,
+			ProviderFactories: clumio.ProviderFactories,
 			Steps: []resource.TestStep{
 				{
 					Config: getTestAccResourceClumioCallback(
@@ -85,7 +90,7 @@ func TestAccResourceClumioCallback(t *testing.T) {
 
 // setUpResources creates the AWS resources required for the acceptance test
 func setUpResources(t *testing.T) (string, string, string, error) {
-	testAccPreCheck(t)
+	clumio.UtilTestAccPreCheckAws(t)
 	log.Println("Creating acceptance test resources for clumio_callback_resource.")
 	ctx := context.TODO()
 	cfg, err := getAWSConfig(ctx)

@@ -1,7 +1,7 @@
 // Copyright 2021. Clumio, Inc.
 
 // AWS Interfaces used in the provider.
-package clumio
+package common
 
 import "context"
 import "github.com/aws/aws-sdk-go-v2/service/s3"

@@ -2,7 +2,7 @@
 
 // clumio_callback_resource definition and CRUD implementation.
 
-package clumio
+package clumio_callback
 
 import (
 	"bytes"
@@ -20,6 +20,7 @@ import (
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/smithy-go"
+	"github.com/clumio-code/terraform-provider-clumio/clumio/common"
 	"github.com/google/uuid"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -39,7 +40,6 @@ const (
 	keyEventPublishTime = "EventPublishTime"
 
 	// Number of retries that we will perform before giving up a AWS request.
-	kMaxRetries       = 8
 	requestTypeCreate = "Create"
 	requestTypeDelete = "Delete"
 	requestTypeUpdate = "Update"
@@ -56,45 +56,6 @@ const (
 	snsPublishError  = "operation error SNS: Publish, https response error StatusCode: 403"
 )
 
-var (
-	// protectInfoMap is the mapping of the the datasource to the resource parameter and
-	// if a config section is required, then isConfig will be true.
-	protectInfoMap = map[string]sourceConfigInfo{
-		"ebs": {
-			sourceKey: "protect_ebs_version",
-			isConfig:  false,
-		},
-		"rds": {
-			sourceKey: "protect_rds_version",
-			isConfig:  false,
-		},
-		"ec2_mssql": {
-			sourceKey: "protect_ec2_mssql_version",
-			isConfig:  false,
-		},
-		"warm_tier": {
-			sourceKey: "protect_warm_tier_version",
-			isConfig:  true,
-		},
-		"s3": {
-			sourceKey: "protect_s3_version",
-			isConfig:  false,
-		},
-		"dynamodb": {
-			sourceKey: "protect_dynamodb_version",
-			isConfig:  false,
-		},
-	}
-	// warmtierInfoMap is the mapping of the the warm tier datasource to the resource
-	// parameter and if a config section is required, then isConfig will be true.
-	warmtierInfoMap = map[string]sourceConfigInfo{
-		"dynamodb": {
-			sourceKey: "protect_warm_tier_dynamodb_version",
-			isConfig:  false,
-		},
-	}
-)
-
 // SNSEvent is the event payload to be sent to the topic
 type SNSEvent struct {
 	RequestType        string                 `json:"RequestType"`
@@ -107,17 +68,10 @@ type SNSEvent struct {
 	ResourceProperties map[string]interface{} `json:"ResourceProperties"`
 }
 
-// The payload in the status file read from S3.
-type StatusObject struct {
-	Status string            `json:"Status"`
-	Reason *string           `json:"Reason,omitempty"`
-	Data   map[string]string `json:"Data,omitempty"`
-}
-
-// clumioCallback returns the resource for Clumio Callback. This resource is similar to
+// ClumioCallback returns the resource for Clumio Callback. This resource is similar to
 // the cloud formation custom resource. It will publish an event to the specified SNS
 // topic and then wait for the status payload in the given S3 bucket.
-func clumioCallback() *schema.Resource {
+func ClumioCallback() *schema.Resource {
 	return &schema.Resource{
 		// This description is used by the documentation generator and the language server.
 		Description: "Clumio Callback Resource used while on-boarding AWS clients." +
@@ -290,11 +244,11 @@ func clumioCallbackDelete(ctx context.Context, d *schema.ResourceData, meta inte
 func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta interface{},
 	eventType string) diag.Diagnostics {
 	// use the meta value to retrieve your client from the provider configure method
-	client := meta.(*apiClient)
+	client := meta.(*common.ApiClient)
 	bucketName := d.Get("bucket_name").(string)
 	accountId := fmt.Sprintf("%v", d.Get("account_id"))
 
-	regionalSns := client.snsAPI
+	regionalSns := client.SnsAPI
 	event := SNSEvent{
 		RequestType:        eventType,
 		ServiceToken:       fmt.Sprintf("%v", d.Get("token")),
@@ -316,7 +270,10 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		fmt.Sprintf("%v", d.Get("clumio_event_pub_id"))
 	resourceProperties[keyCanonicalUser] = fmt.Sprintf("%v", d.Get("canonical_user"))
 
-	templateConfigs := getTemplateConfiguration(d)
+	templateConfigs, err := common.GetTemplateConfiguration(d, false)
+	if err != nil {
+		return diag.Errorf("Error forming template configuration. Error: %v", err)
+	}
 	resourceProperties[keyTemplateConfig] = templateConfigs
 	if val, ok := d.GetOk("properties"); ok && len(val.(map[string]interface{})) > 0 {
 		properties := val.(map[string]interface{})
@@ -346,7 +303,7 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 	if eventType == requestTypeCreate {
 		d.SetId(uuid.New().String())
 	}
-	s3obj := client.s3API
+	s3obj := client.S3API
 	endTime := startTime.Add(5 * time.Minute)
 	timeOut := false
 	processingDone := false
@@ -382,7 +339,7 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 			}
 			return diag.Errorf("Error retrieving clumio-status.json: %v", err)
 		} else {
-			var status StatusObject
+			var status common.StatusObject
 			statusObjBytes := new(bytes.Buffer)
 			_, err = statusObjBytes.ReadFrom(statusObj.Body)
 			if err != nil {
@@ -406,68 +363,6 @@ func clumioCallbackCommon(ctx context.Context, d *schema.ResourceData, meta inte
 		return diag.Errorf("Timeout occurred waiting for status.")
 	}
 	return nil
-}
-
-type sourceConfigInfo struct {
-	sourceKey string
-	isConfig  bool
-}
-
-// getTemplateConfiguration returns the template configuration.
-func getTemplateConfiguration(d *schema.ResourceData) map[string]interface{} {
-	templateConfigs := make(map[string]interface{})
-	configMap := getConfigMapForKey(d, "config_version", false)
-	if configMap == nil {
-		return templateConfigs
-	}
-	templateConfigs["config"] = configMap
-	discoverMap := getConfigMapForKey(d, "discover_version", true)
-	if discoverMap == nil {
-		return templateConfigs
-	}
-	templateConfigs["discover"] = discoverMap
-	protectMap := getConfigMapForKey(d, "protect_config_version", true)
-	if protectMap == nil {
-		return templateConfigs
-	}
-	populateConfigMap(d, protectInfoMap, protectMap)
-
-	if protectWarmtierMap, ok := protectMap["warm_tier"]; ok {
-		populateConfigMap(d, warmtierInfoMap, protectWarmtierMap.(map[string]interface{}))
-	}
-	templateConfigs["protect"] = protectMap
-	return templateConfigs
-}
-
-func populateConfigMap(d *schema.ResourceData, configInfoMap map[string]sourceConfigInfo,
-	configMap map[string]interface{}) {
-	for source, sourceInfo := range configInfoMap {
-		protectSourceMap := getConfigMapForKey(d, sourceInfo.sourceKey, sourceInfo.isConfig)
-		if protectSourceMap != nil {
-			configMap[source] = protectSourceMap
-		}
-	}
-}
-
-// getConfigMapForKey returns a config map for the key if it exists in ResourceData.
-func getConfigMapForKey(
-	d *schema.ResourceData, key string, isConfig bool) map[string]interface{} {
-	var mapToReturn map[string]interface{}
-	if val, ok := d.GetOk(key); ok {
-		keyMap := make(map[string]interface{})
-		if keyVersion, ok := val.(string); ok {
-			keyMap["enabled"] = true
-			keyMap["version"] = keyVersion
-		}
-		mapToReturn = keyMap
-		// If isConfig is true it wraps the keyMap with another map with "config" as the key.
-		if isConfig {
-			configMap := make(map[string]interface{})
-			configMap["config"] = keyMap
-			mapToReturn = configMap
-		}
-	}
-	return mapToReturn
 }
 
 // processErrorMessage takes the failure reason and adds the potential cause for the
