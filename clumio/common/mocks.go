@@ -1,7 +1,7 @@
 // Copyright 2021. Clumio, Inc.
 
 // Contains mock implementations of the SNS and S3 APIs used for testing.
-package clumio
+package common
 
 import (
 	"bytes"
@@ -13,17 +13,17 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
-
 )
+
+const statusSuccess = "SUCCESS"
 
 // SNSClient is a mock client for SNS to help with unit tests.
 type SNSClient struct {
-
 }
 
 // PublishWithContext publishes an SNS notification.
 func (s SNSClient) Publish(_ context.Context, _ *sns.PublishInput,
-	_ ...func(*sns.Options)) (*sns.PublishOutput, error){
+	_ ...func(*sns.Options)) (*sns.PublishOutput, error) {
 	return &sns.PublishOutput{
 		MessageId: aws.String("message-id"),
 	}, nil
@@ -31,7 +31,6 @@ func (s SNSClient) Publish(_ context.Context, _ *sns.PublishInput,
 
 // S3Client is a mock client for S3 to help with unit tests.
 type S3Client struct {
-
 }
 
 // HeadObjectWithContext fetches the metadata of a an object from a bucket.
@@ -53,11 +52,11 @@ func (s S3Client) GetObject(_ context.Context, _ *s3.GetObjectInput,
 		Data:   nil,
 	}
 	statusBytes, err := json.Marshal(status)
-	if err != nil{
+	if err != nil {
 		return nil, err
 	}
 	return &s3.GetObjectOutput{
 		LastModified: &currTime,
-		Body: ioutil.NopCloser(bytes.NewReader(statusBytes)),
+		Body:         ioutil.NopCloser(bytes.NewReader(statusBytes)),
 	}, nil
 }
