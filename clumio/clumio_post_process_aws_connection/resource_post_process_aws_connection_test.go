@@ -69,6 +69,7 @@ resource "clumio_post_process_aws_connection" "test" {
   role_arn = "testRoleArn"
   account_id = clumio_aws_connection.test_conn.account_native_id
   region = clumio_aws_connection.test_conn.aws_region
+  clumio_event_pub_id = "test_event_pub_id"
   config_version = "1.1"
   discover_version = "4.1"
   protect_config_version = "19.2"
@@ -107,6 +108,7 @@ resource "clumio_post_process_aws_connection" "test" {
   role_arn = "testRoleArn"
   account_id = clumio_aws_connection.test_conn.account_native_id
   region = clumio_aws_connection.test_conn.aws_region
+  clumio_event_pub_id = "test_event_pub_id"
   config_version = "1.2"
   discover_version = "4.1"
   protect_config_version = "19.2"

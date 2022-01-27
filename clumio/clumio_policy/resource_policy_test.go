@@ -50,11 +50,11 @@ resource "clumio_policy" "test_policy" {
 	slas {
 		retention_duration {
 			unit = "days"
-			value = 1
+			value = 4
 		}
 		rpo_frequency {
 			unit = "days"
-			value = 1
+			value = 2
 		}
 	}
   }

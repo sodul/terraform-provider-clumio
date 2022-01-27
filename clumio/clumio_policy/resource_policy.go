@@ -61,7 +61,7 @@ var (
 				Description: "The retention time for this SLA. " +
 					"For example, to retain the backup for 1 month," +
 					" set unit=months and value=1.",
-				Set: schema.HashResource(resUnitValue),
+				Set:  schema.HashResource(resUnitValue),
 				Elem: resUnitValue,
 			},
 			schemaRpoFrequency: {
@@ -76,7 +76,7 @@ var (
 					"unit=days and value=2. To configure the SLA " +
 					"for on-demand backups, set unit=on_demand " +
 					"and leave the value field empty.",
-				Set: schema.HashResource(resUnitValue),
+				Set:  schema.HashResource(resUnitValue),
 				Elem: resUnitValue,
 			},
 		},
@@ -104,7 +104,7 @@ var (
 				MaxItems: 1,
 				Description: "The start and end times for the customized" +
 					" backup window.",
-				Set: schema.HashResource(resBackupWindow),
+				Set:  schema.HashResource(resBackupWindow),
 				Elem: resBackupWindow,
 			},
 			schemaSlas: {
@@ -114,7 +114,7 @@ var (
 					" A policy can include one or more SLAs. For example, " +
 					"a policy can retain daily backups for a month each, " +
 					"and monthly backups for a year each.",
-				Set: schema.HashResource(resSla),
+				Set:  schema.HashResource(resSla),
 				Elem: resSla,
 			},
 		},
@@ -221,8 +221,8 @@ func clumioPolicyRead(
 	}
 	err := d.Set(schemaLockStatus, *res.LockStatus)
 	if err != nil {
-			return diag.Errorf(common.SchemaAttributeSetError, schemaLockStatus, err)
-		}
+		return diag.Errorf(common.SchemaAttributeSetError, schemaLockStatus, err)
+	}
 	err = d.Set(schemaName, *res.Name)
 	if err != nil {
 		return diag.Errorf(common.SchemaAttributeSetError, schemaName, err)
@@ -328,11 +328,11 @@ func mapSchemaOperationsToClumioOperations(
 			rpoFrequencyIface := schemaSla[schemaRpoFrequency]
 			schemaRpoFrequencySlice := rpoFrequencyIface.(*schema.Set).List()
 			schemaRpoFrequency := schemaRpoFrequencySlice[0].(map[string]interface{})
-			unit = schemaRpoFrequency[schemaUnit].(string)
-			value = int64(schemaRpoFrequency[schemaValue].(int))
+			rpoUnit := schemaRpoFrequency[schemaUnit].(string)
+			rpoValue := int64(schemaRpoFrequency[schemaValue].(int))
 			rpoFrequency = &models.RPOBackupSLAParam{
-				Unit:  &unit,
-				Value: &value,
+				Unit:  &rpoUnit,
+				Value: &rpoValue,
 			}
 			backupSLA := &models.BackupSLA{
 				RetentionDuration: retentionDuration,

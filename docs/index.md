@@ -10,6 +10,8 @@ description: |-
 
 # Clumio Provider
 
+NOTE: 0.2.x is still in beta. 0.1.4 is the latest release.
+
 ## Example Usage
 
 ```terraform
@@ -50,7 +52,15 @@ provider "clumio" {
 - **access_key** (String) AWS Access Key.
 - **assume_role** (Block List, Max: 1) (
   see [below for nested schema](#nestedblock--assume_role))
-- **clumio_api_base_url** (String) The base URL for Clumio APIs.
+- **clumio_api_base_url** (String) The base URL for Clumio APIs. The following are the
+  valid values for clumio_api_base_url. Use the appropriate value depending on the region
+  for which your credentials were created:
+
+  	us-west: https://us-west-2.api.clumio.com
+
+  	us-east: https://us-east-1.api.clumio.com
+
+  	canada:  https://ca-central-1.ca.api.clumio.com
 - **clumio_api_token** (String) The API token required to invoke Clumio APIs.
 - **clumio_region** (String) Clumio Control Plane AWS Region.
 - **profile** (String) The profile for API operations. If not set, the default profile

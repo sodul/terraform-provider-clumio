@@ -20,6 +20,7 @@ resource "clumio_post_process_aws_connection" "example" {
   account_id                         = "account_id"
   region                             = "region"
   role_arn                           = "role_arn"
+  clumio_event_pub_id                = "clumio_event_pub_id"
   config_version                     = "1"
   discover_version                   = "3"
   protect_config_version             = "18"
@@ -39,6 +40,7 @@ resource "clumio_post_process_aws_connection" "example" {
 ### Required
 
 - **account_id** (String) The AWS Customer Account ID.
+- **clumio_event_pub_id** (String) Clumio Event Pub SNS topic ID.
 - **config_version** (String) Clumio Config version.
 - **discover_version** (String) Clumio Discover version.
 - **region** (String) The AWS Region.
