@@ -104,6 +104,11 @@ func ClumioPostProcessAWSConnection() *schema.Resource {
 				Description: "Clumio DynamoDB Warm Tier Protect version.",
 				Optional:    true,
 			},
+			schemaClumioEventPubId: {
+				Type:        schema.TypeString,
+				Description: "Clumio Event Pub SNS topic ID.",
+				Required:    true,
+			},
 		},
 	}
 }
@@ -148,6 +153,7 @@ func clumioPostProcessAWSConnectionCommon(_ context.Context, d *schema.ResourceD
 	roleArn := common.GetStringValue(d, schemaRoleArn)
 	token := common.GetStringValue(d, schemaToken)
 	roleExternalId := common.GetStringValue(d, schemaRoleExternalId)
+	clumioEventPubId := common.GetStringValue(d, schemaClumioEventPubId)
 
 	templateConfig, err := common.GetTemplateConfiguration(d, true)
 	if err != nil {
@@ -162,13 +168,14 @@ func clumioPostProcessAWSConnectionCommon(_ context.Context, d *schema.ResourceD
 	configuration := string(configBytes)
 	_, apiErr := postProcessAwsConnection.PostProcessAwsConnection(
 		&models.PostProcessAwsConnectionV1Request{
-			AccountNativeId: &accountId,
-			AwsRegion:       &awsRegion,
-			Configuration:   &configuration,
-			RequestType:     &eventType,
-			RoleArn:         &roleArn,
-			RoleExternalId:  &roleExternalId,
-			Token:           &token,
+			AccountNativeId:  &accountId,
+			AwsRegion:        &awsRegion,
+			Configuration:    &configuration,
+			RequestType:      &eventType,
+			RoleArn:          &roleArn,
+			RoleExternalId:   &roleExternalId,
+			Token:            &token,
+			ClumioEventPubId: &clumioEventPubId,
 		})
 	if apiErr != nil {
 		return diag.Errorf(

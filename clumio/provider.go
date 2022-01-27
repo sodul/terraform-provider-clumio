@@ -114,10 +114,14 @@ func New(isUnitTest bool) func() *schema.Provider {
 				Description: "The API token required to invoke Clumio APIs.",
 			},
 			"clumio_api_base_url": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     "https://api.clumio.com",
-				Description: "The base URL for Clumio APIs.",
+				Type:     schema.TypeString,
+				Optional: true,
+				Description: "The base URL for Clumio APIs. The following are the valid " +
+					"values for clumio_api_base_url. Use the appropriate value depending" +
+					" on the region for which your credentials were created:\n\n\t\t" +
+					"us-west: https://us-west-2.api.clumio.com\n\n\t\t" +
+					"us-east: https://us-east-1.api.clumio.com\n\n\t\t" +
+					"canada:  https://ca-central-1.ca.api.clumio.com",
 			},
 		}
 		return p

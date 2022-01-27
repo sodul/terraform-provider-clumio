@@ -5,6 +5,7 @@ resource "clumio_post_process_aws_connection" "example" {
   account_id                         = "account_id"
   region                             = "region"
   role_arn                           = "role_arn"
+  clumio_event_pub_id                = "clumio_event_pub_id"
   config_version                     = "1"
   discover_version                   = "3"
   protect_config_version             = "18"
