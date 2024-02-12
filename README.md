@@ -7,8 +7,8 @@ NOTE: 0.1.x versions have been deprecated.
 
 ## Requirements
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 0.14.x
-- [Go](https://golang.org/doc/install) >= 1.17
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.4.x
+- [Go](https://golang.org/doc/install) >= 1.21
 
 ## Installing the provider
 
@@ -23,7 +23,7 @@ terraform {
   required_providers {
     clumio = {
       source = "clumio-code/clumio"
-      version = "~>0.2.5"
+      version = "~>0.5.9"
     }
   }
 }
