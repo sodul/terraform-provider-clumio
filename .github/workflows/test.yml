@@ -1,5 +1,4 @@
-# This GitHub action runs your tests for each commit push and/or PR. Optionally
-# you can turn it on using a cron schedule for regular testing.
+# This GitHub action runs your tests for each commit push and/or PR.
 #
 name: Tests
 on:
@@ -11,6 +10,8 @@ on:
       - 'README.md'
   workflow_dispatch:
     # Allows us to trigger this action manually.
+env:
+  GOEXPERIMENT: boringcrypto
 
 jobs:
   build-and-test:
@@ -22,16 +23,16 @@ jobs:
         # Use a dynamic matrix to allow testing multiple OSes and Go versions
         # in the public repository but reduce combinations in private clones.
         exclude:
-          - os: ${{ github.repository_owner == 'sodul' && 'dummy' || 'macos-latest' }}
-          - os: ${{ github.repository_owner == 'sodul' && 'dummy' || 'windows-latest' }}
-          - go: ${{ github.repository_owner == 'sodul' && 'dummy' || '1.21' }}
+          - os: ${{ github.repository_owner == 'clumio-code' && '_' || 'macos-latest' }}
+          - os: ${{ github.repository_owner == 'clumio-code' && '_' || 'windows-latest' }}
+          - go: ${{ github.repository_owner == 'sodul' && '_' || '1.22' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: ${{ env.GO_VERSION }}
+        go-version: ${{ matrix.go }}
 
     - name: Check out code into the Go module directory
       uses: actions/checkout@v4
@@ -41,7 +42,6 @@ jobs:
         echo "matrix.os=${{ matrix.os }}"
         echo "matrix.go=${{ matrix.go }}"
         echo "github.repository_owner=${{ github.repository_owner }}"
-        echo "GO_VERSION=$GO_VERSION"
         go version
 
     - name: Get dependencies
