@@ -22,9 +22,9 @@ jobs:
         # Use a dynamic matrix to allow testing multiple OSes and Go versions
         # in the public repository but reduce combinations in private clones.
         exclude:
-          - os: ${{ github.repository_owner == 'clumio-code' && '' || 'macos-latest' }}
-          - os: ${{ github.repository_owner == 'clumio-code' && '' || 'windows-latest' }}
-          - go: ${{ github.repository_owner == 'clumio-code' && '' || '1.21' }}
+          - os: ${{ github.repository_owner == 'sodul' && 'dummy' || 'macos-latest' }}
+          - os: ${{ github.repository_owner == 'sodul' && 'dummy' || 'windows-latest' }}
+          - go: ${{ github.repository_owner == 'sodul' && 'dummy' || '1.21' }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 10
     steps:
